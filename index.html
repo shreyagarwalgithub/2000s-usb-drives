@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USB Drive Classifier</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>USB Drive Classifier</h1>
+      <p class="tagline">
+        Scan an old drive and classify its content. Everything runs locally in
+        your browser. No files are uploaded anywhere.
+      </p>
+    </header>
+
+    <main class="app-main">
+      <section class="controls">
+        <button id="pick-directory" type="button">Choose a folder / drive</button>
+        <input
+          id="fallback-input"
+          type="file"
+          webkitdirectory
+          multiple
+          hidden
+        />
+        <p id="support-note" class="support-note"></p>
+      </section>
+
+      <section id="progress-section" class="progress-section" hidden>
+        <div class="progress-row">
+          <span id="progress-count">0 files scanned</span>
+          <button id="cancel-scan" type="button" class="secondary">Stop</button>
+        </div>
+        <p id="progress-current" class="progress-current"></p>
+      </section>
+
+      <section id="summary-section" class="summary-section" hidden>
+        <h2>Summary</h2>
+        <div id="summary-cards" class="summary-cards"></div>
+      </section>
+
+      <section id="results-section" class="results-section" hidden>
+        <div class="results-toolbar">
+          <h2>Files</h2>
+          <label>
+            Filter:
+            <select id="type-filter">
+              <option value="">All types</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table id="results-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Size</th>
+                <th>Path</th>
+                <th>Detected by</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

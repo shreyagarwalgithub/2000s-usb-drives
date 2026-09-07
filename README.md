@@ -1,0 +1,137 @@
+# USB Drive Classifier
+
+A browser-based tool for making sense of old USB and hard drives. Point it at a
+drive or folder, and it recursively scans every file and classifies it by
+content type — video, image, audio, code, document, archive, and more.
+
+**Everything runs locally in your browser.** No files are uploaded anywhere.
+
+## Why
+
+Old drives accumulate 15+ years of mixed content with no organization. Before
+you can decide what to keep, back up, or delete, you first need to know what is
+actually on the drive. This tool gives you that inventory as a first step, and
+is built to grow into deeper, per-type analysis over time.
+
+## Status
+
+**Iteration 1 — classification only.** The app scans a drive and sorts every
+file into a content category with a per-category summary and a filterable file
+list. Deeper per-type "actions" (see the roadmap) are designed for but not yet
+implemented.
+
+## How classification works
+
+Two heuristic engines, no ML model download required:
+
+1. **Extension + MIME engine** (`src/classification/engines/extensionEngine.js`)
+   — a fast first guess from the file extension. Needs only the file name, so
+   it is essentially free even across hundreds of thousands of files.
+2. **Magic-number engine** (`src/classification/engines/magicNumberEngine.js`)
+   — reads just the first 64 bytes of a file and matches known file
+   signatures. This is more reliable than the extension and works even when the
+   extension is missing or wrong.
+
+The orchestrator (`src/classification/classifier.js`) reconciles the two: the
+magic-number result generally wins, with a documented exception for ZIP-based
+container formats (`.docx`, `.xlsx`, `.epub`, ...) where the extension carries
+the more specific meaning.
+
+This heuristic approach was chosen deliberately over an ML model for v1: content
+*type* is almost perfectly determined by extension + file signature, so an ML
+classifier here would be slower, heavier, and less accurate. ML becomes valuable
+in later iterations for the deeper questions (what is *in* an image, video
+quality, etc.).
+
+## File access
+
+- **Preferred:** the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker)
+  (`showDirectoryPicker`), available on Chromium-based desktop browsers (Chrome,
+  Edge). It reads files lazily so a huge drive is never loaded into memory. The
+  handle is requested **read-only**.
+- **Fallback:** a `<input type="file" webkitdirectory>` folder picker for
+  browsers without the API. Files are still processed locally, never uploaded.
+
+Scanning is streamed through a bounded worker pool
+(`src/utils/concurrency.js`), so even very large drives stay responsive and
+memory usage stays flat. System/metadata folders (`$RECYCLE.BIN`,
+`System Volume Information`, `node_modules`, `.git`, ...) are skipped.
+
+## Getting started
+
+Requires Node.js 18+ and a Chromium-based browser for the best experience.
+
+```bash
+npm install
+npm run dev      # start the local dev server (opens the app)
+npm run build    # production build into dist/
+npm run preview  # preview the production build
+```
+
+Then click **Choose a folder / drive**, pick your USB drive, and watch the
+summary and file list populate as it scans.
+
+## Project structure
+
+```
+src/
+├── main.js                      App bootstrap; wires picker -> scan -> classify -> UI
+├── styles.css
+├── scanner/
+│   ├── filePicker.js            File System Access API + webkitdirectory fallback
+│   └── directoryScanner.js      Recursive, streaming directory walk
+├── classification/
+│   ├── classifier.js            Orchestrates the engines
+│   ├── types.js                 ContentType categories + labels
+│   ├── engines/
+│   │   ├── extensionEngine.js   Extension/MIME lookup (fast path)
+│   │   └── magicNumberEngine.js Byte-signature detection (accuracy path)
+│   └── actions/
+│       ├── actionRegistry.js    Per-type action hooks (stubs in v1)
+│       └── README.md            Specs for the planned per-type actions
+├── ui/
+│   ├── resultsTable.js          Streaming, filterable file list
+│   ├── summary.js               Per-category counts and sizes
+│   └── progress.js              Live scan progress
+└── utils/
+    ├── format.js                Human-readable sizes/counts
+    └── concurrency.js           Bounded worker pool for large drives
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for how the pieces fit
+together and how to extend them.
+
+## Roadmap — per-type actions (future iterations)
+
+Once a file's type is known, a type-specific "action" can enrich it. These are
+specced in [`src/classification/actions/README.md`](src/classification/actions/README.md)
+and stubbed in the action registry so they can be added without touching the
+scanner or classifier.
+
+| Type      | v1          | Planned action |
+|-----------|-------------|----------------|
+| Video     | classify    | Estimate quality (resolution/bitrate); check OTT availability; flag **delete** if available, **preserve** if not. Deletion is always an explicit, confirmed action — never automatic. |
+| Image     | classify    | In-browser object/scene detection to describe what's in the picture. |
+| Code      | classify    | Generate a README summarizing what a code folder is about. |
+| Audio     | classify    | TBD |
+| Document  | classify    | TBD |
+| Archive   | classify    | TBD |
+
+### Safety notes for future actions
+
+- Scanning uses a **read-only** directory handle. No file is ever modified or
+  deleted during classification.
+- Any future delete flow requires a separately-granted read-write permission and
+  explicit user confirmation per file.
+- Any action that needs the network (e.g. OTT availability lookup) will be
+  opt-in and will send only minimal derived metadata (like a guessed title),
+  never file contents.
+
+## Privacy
+
+All scanning and classification happen entirely in your browser. Files and their
+contents never leave your machine in iteration 1.
+
+## License
+
+MIT
