@@ -54,7 +54,13 @@ export const REPORT_VERSION = 1;
  * @param {FileRecord[]} params.fileRecords
  * @returns {ScanReport}
  */
-export function buildReport({ rootName, summaryTotals, folderStats, fileRecords }) {
+export function buildReport({
+  rootName,
+  summaryTotals,
+  documentSubtypeTotals,
+  folderStats,
+  fileRecords,
+}) {
   let totalFiles = 0;
   let totalBytes = 0;
   const summary = {};
@@ -62,6 +68,13 @@ export function buildReport({ rootName, summaryTotals, folderStats, fileRecords 
     summary[type] = { count, size };
     totalFiles += count;
     totalBytes += size;
+  }
+
+  const documentSubtypes = {};
+  if (documentSubtypeTotals) {
+    for (const [subtype, { count, size }] of documentSubtypeTotals.entries()) {
+      documentSubtypes[subtype] = { count, size };
+    }
   }
 
   const folders = {};
@@ -82,9 +95,54 @@ export function buildReport({ rootName, summaryTotals, folderStats, fileRecords 
     rootName,
     totals: { files: totalFiles, bytes: totalBytes },
     summary,
+    documentSubtypes,
     folders,
+    largestFiles: computeLargestFiles(fileRecords),
+    largestFolders: computeLargestFolders(fileRecords),
     files: fileRecords,
   };
+}
+
+/** How many entries to keep in the "largest" lists. */
+export const TOP_N = 20;
+
+/**
+ * Compute the largest individual files.
+ * @param {FileRecord[]} fileRecords
+ * @param {number} [n]
+ * @returns {Array<{ path: string, name: string, size: number, type: string }>}
+ */
+export function computeLargestFiles(fileRecords, n = TOP_N) {
+  return [...fileRecords]
+    .filter((r) => Number.isFinite(r.size) && r.size > 0)
+    .sort((a, b) => b.size - a.size)
+    .slice(0, n)
+    .map((r) => ({ path: r.path, name: r.name, size: r.size, type: r.type }));
+}
+
+/**
+ * Compute the largest folders by summed file size. A file at path
+ * "a/b/c.txt" contributes to folder "a/b". Folders are aggregated at their
+ * immediate-parent granularity.
+ * @param {FileRecord[]} fileRecords
+ * @param {number} [n]
+ * @returns {Array<{ folder: string, size: number, count: number }>}
+ */
+export function computeLargestFolders(fileRecords, n = TOP_N) {
+  const byFolder = new Map();
+  for (const r of fileRecords) {
+    const size = Number.isFinite(r.size) && r.size > 0 ? r.size : 0;
+    const idx = r.path.lastIndexOf('/');
+    const folder = idx > 0 ? r.path.slice(0, idx) : '(root)';
+    const agg = byFolder.get(folder) || { size: 0, count: 0 };
+    agg.size += size;
+    agg.count += 1;
+    byFolder.set(folder, agg);
+  }
+  return [...byFolder.entries()]
+    .map(([folder, { size, count }]) => ({ folder, size, count }))
+    .sort((a, b) => b.size - a.size)
+    .slice(0, n);
 }
 
 /**
@@ -163,6 +221,7 @@ export function serializeReportCsv(report) {
     'sizeBytes',
     'lastModified',
     'type',
+    'subtype',
     'mime',
     'detectedBy',
     'folder',
@@ -178,6 +237,7 @@ export function serializeReportCsv(report) {
         rec.size,
         lm,
         rec.type,
+        rec.subtype || '',
         rec.mime || '',
         rec.detectedBy,
         rec.folder || '',
@@ -267,6 +327,62 @@ export function serializeReportHtml(report) {
       ? `<p class="note">Showing the first ${FILE_CAP} of ${files.length} files. The full list is in the JSON/CSV export.</p>`
       : '';
 
+  // Document sub-type breakdown.
+  const docSubEntries = Object.entries(report.documentSubtypes || {}).sort(
+    (a, b) => b[1].count - a[1].count
+  );
+  const docTotal = report.summary?.document?.count || 0;
+  const docSubSection = docSubEntries.length
+    ? `<h2>Documents by sub-type</h2>
+       <table>
+         <thead><tr><th>Sub-type</th><th>Files (share)</th><th>Size</th></tr></thead>
+         <tbody>${docSubEntries
+           .map(([sub, { count, size }]) => {
+             const pct = docTotal ? Math.round((count / docTotal) * 100) : 0;
+             return `<tr><td>${esc(sub)}</td><td>${count} (${pct}%)</td><td>${formatBytesHtml(
+               size
+             )}</td></tr>`;
+           })
+           .join('')}</tbody>
+       </table>`
+    : '';
+
+  // Largest files.
+  const largestFiles = report.largestFiles || [];
+  const largestFilesSection = largestFiles.length
+    ? `<h2>Largest files</h2>
+       <table>
+         <thead><tr><th>Size</th><th>Name</th><th>Type</th><th>Path</th></tr></thead>
+         <tbody>${largestFiles
+           .map(
+             (f) =>
+               `<tr><td>${formatBytesHtml(f.size)}</td><td>${esc(
+                 f.name
+               )}</td><td>${esc(f.type)}</td><td class="path">${esc(
+                 f.path
+               )}</td></tr>`
+           )
+           .join('')}</tbody>
+       </table>`
+    : '';
+
+  // Largest folders.
+  const largestFolders = report.largestFolders || [];
+  const largestFoldersSection = largestFolders.length
+    ? `<h2>Largest folders</h2>
+       <table>
+         <thead><tr><th>Size</th><th>Files</th><th>Folder</th></tr></thead>
+         <tbody>${largestFolders
+           .map(
+             (f) =>
+               `<tr><td>${formatBytesHtml(f.size)}</td><td>${
+                 f.count
+               }</td><td class="path">${esc(f.folder)}</td></tr>`
+           )
+           .join('')}</tbody>
+       </table>`
+    : '';
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -296,6 +412,12 @@ export function serializeReportHtml(report) {
     <thead><tr><th>Type</th><th>Files (share)</th><th>Size (share)</th></tr></thead>
     <tbody>${summaryRows}</tbody>
   </table>
+
+  ${docSubSection}
+
+  ${largestFilesSection}
+
+  ${largestFoldersSection}
 
   ${folderSection}
 

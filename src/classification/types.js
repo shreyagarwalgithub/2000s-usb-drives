@@ -50,8 +50,87 @@ export const Confidence = Object.freeze({
 });
 
 /**
+ * Finer-grained sub-types for the DOCUMENT category. A drive of office files
+ * collapses into one giant "document" bucket otherwise, which is not actionable
+ * (see the real-world scan reports). These let the summary show PDFs vs.
+ * spreadsheets vs. presentations, etc.
+ */
+export const DocumentSubtype = Object.freeze({
+  PDF: 'pdf',
+  WORD: 'word',
+  SPREADSHEET: 'spreadsheet',
+  PRESENTATION: 'presentation',
+  EBOOK: 'ebook',
+  TEXT: 'text',
+  OTHER: 'other-document',
+});
+
+/** Human-readable labels for document sub-types. */
+export const DocumentSubtypeLabel = Object.freeze({
+  [DocumentSubtype.PDF]: 'PDF',
+  [DocumentSubtype.WORD]: 'Word',
+  [DocumentSubtype.SPREADSHEET]: 'Spreadsheet',
+  [DocumentSubtype.PRESENTATION]: 'Presentation',
+  [DocumentSubtype.EBOOK]: 'E-book',
+  [DocumentSubtype.TEXT]: 'Text',
+  [DocumentSubtype.OTHER]: 'Other document',
+});
+
+/**
+ * Map a MIME type to a document sub-type. Returns null when the MIME isn't a
+ * recognized document format (the caller leaves subtype undefined then).
+ * @param {string} [mime]
+ * @returns {string|null}
+ */
+export function documentSubtypeForMime(mime) {
+  if (!mime) return null;
+  const m = mime.toLowerCase();
+
+  if (m === 'application/pdf') return DocumentSubtype.PDF;
+
+  if (
+    m === 'application/msword' ||
+    m === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    m === 'application/vnd.oasis.opendocument.text' ||
+    m === 'application/rtf' ||
+    m === 'application/x-iwork-pages-sffpages'
+  ) {
+    return DocumentSubtype.WORD;
+  }
+
+  if (
+    m === 'application/vnd.ms-excel' ||
+    m === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    m === 'application/vnd.oasis.opendocument.spreadsheet'
+  ) {
+    return DocumentSubtype.SPREADSHEET;
+  }
+
+  if (
+    m === 'application/vnd.ms-powerpoint' ||
+    m === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ) {
+    return DocumentSubtype.PRESENTATION;
+  }
+
+  if (
+    m === 'application/epub+zip' ||
+    m === 'application/x-mobipocket-ebook'
+  ) {
+    return DocumentSubtype.EBOOK;
+  }
+
+  if (m === 'text/plain' || m === 'text/markdown') {
+    return DocumentSubtype.TEXT;
+  }
+
+  return DocumentSubtype.OTHER;
+}
+
+/**
  * @typedef {Object} ClassificationResult
- * @property {string} type       One of ContentType.
- * @property {string} detectedBy One of Confidence (how the type was decided).
- * @property {string} [mime]     Best-guess MIME type, if known.
+ * @property {string} type        One of ContentType.
+ * @property {string} detectedBy  One of Confidence (how the type was decided).
+ * @property {string} [mime]      Best-guess MIME type, if known.
+ * @property {string} [subtype]   For DOCUMENT: one of DocumentSubtype.
  */

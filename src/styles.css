@@ -277,6 +277,56 @@ button.secondary {
   font-size: 0.8rem;
 }
 
+.summary-subtypes {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.summary-subtype-row {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* ---- Largest files / folders ---- */
+.largest-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .largest-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+.largest-col h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.largest-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.largest-list li {
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.largest-size {
+  display: inline-block;
+  min-width: 72px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.largest-name {
+  color: var(--text);
+}
+
 /* ---- Results table ---- */
 .results-toolbar {
   display: flex;

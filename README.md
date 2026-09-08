@@ -43,6 +43,21 @@ classifier here would be slower, heavier, and less accurate. ML becomes valuable
 in later iterations for the deeper questions (what is *in* an image, video
 quality, etc.).
 
+### Document sub-types
+
+Office/work drives collapse into one giant "document" bucket, which is not
+actionable. Documents are therefore broken down by sub-type — PDF, Word,
+Spreadsheet, Presentation, E-book, and Text — derived from the resolved MIME
+type. The summary shows this breakdown nested under the Document category, and
+it is included in every report export.
+
+### Largest files and folders
+
+After a scan, the app computes the largest individual files and the largest
+folders (by summed file size, grouped at immediate-parent granularity). These
+are shown on the page and included in the report, so the biggest space consumers
+are easy to spot.
+
 ## File access
 
 - **Preferred:** the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker)

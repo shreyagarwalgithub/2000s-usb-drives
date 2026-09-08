@@ -1,9 +1,16 @@
-import { ContentType, ContentTypeLabel } from '../classification/types.js';
+import {
+  ContentType,
+  ContentTypeLabel,
+  DocumentSubtypeLabel,
+} from '../classification/types.js';
 import { formatBytes, formatCount, formatPercent } from '../utils/format.js';
 
 /**
  * Per-category summary cards: file count and total size for each content type.
- * Aggregates are maintained incrementally as files stream in.
+ * For the Document category, a finer breakdown by sub-type (PDF, spreadsheet,
+ * presentation, ...) is shown, since documents otherwise dominate as one
+ * undifferentiated bucket. Aggregates are maintained incrementally as files
+ * stream in.
  */
 export class Summary {
   constructor() {
@@ -11,6 +18,8 @@ export class Summary {
     this.cards = document.getElementById('summary-cards');
     /** @type {Map<string, { count: number, size: number }>} */
     this.totals = new Map();
+    /** Document sub-type totals: subtype -> { count, size }. */
+    this.docSubtypes = new Map();
     this._pending = false;
   }
 
@@ -21,19 +30,30 @@ export class Summary {
   /** Clear all totals so the summary can be reused for a fresh scan. */
   reset() {
     this.totals = new Map();
+    this.docSubtypes = new Map();
     this.cards.innerHTML = '';
   }
 
   /**
    * Record one classified file.
-   * @param {string} type One of ContentType.
-   * @param {number} size Bytes (may be 0 if unknown).
+   * @param {string} type      One of ContentType.
+   * @param {number} size      Bytes (may be 0 if unknown).
+   * @param {string} [subtype] Document sub-type, when type is DOCUMENT.
    */
-  add(type, size) {
+  add(type, size, subtype) {
+    const safeSize = Number.isFinite(size) && size > 0 ? size : 0;
     const t = this.totals.get(type) || { count: 0, size: 0 };
     t.count += 1;
-    t.size += Number.isFinite(size) && size > 0 ? size : 0;
+    t.size += safeSize;
     this.totals.set(type, t);
+
+    if (type === ContentType.DOCUMENT && subtype) {
+      const s = this.docSubtypes.get(subtype) || { count: 0, size: 0 };
+      s.count += 1;
+      s.size += safeSize;
+      this.docSubtypes.set(subtype, s);
+    }
+
     this._scheduleRender();
   }
 
@@ -49,6 +69,20 @@ export class Summary {
     t.count += Number.isFinite(count) ? count : 0;
     t.size += Number.isFinite(size) ? size : 0;
     this.totals.set(type, t);
+    this._scheduleRender();
+  }
+
+  /**
+   * Add a document sub-type aggregate in one shot (report-render path).
+   * @param {string} subtype
+   * @param {number} count
+   * @param {number} size
+   */
+  addDocSubtypeAggregate(subtype, count, size) {
+    const s = this.docSubtypes.get(subtype) || { count: 0, size: 0 };
+    s.count += Number.isFinite(count) ? count : 0;
+    s.size += Number.isFinite(size) ? size : 0;
+    this.docSubtypes.set(subtype, s);
     this._scheduleRender();
   }
 
@@ -101,7 +135,36 @@ export class Summary {
       )})`;
 
       card.append(label, count_, size_);
+
+      // Document sub-type breakdown, nested under the Document card.
+      if (type === ContentType.DOCUMENT && this.docSubtypes.size > 0) {
+        card.appendChild(this._buildSubtypeBreakdown(count));
+      }
+
       this.cards.appendChild(card);
     }
+  }
+
+  /**
+   * Build the sub-type breakdown list for the document card.
+   * @param {number} docTotal Total document count (for percentage shares).
+   * @returns {HTMLElement}
+   */
+  _buildSubtypeBreakdown(docTotal) {
+    const wrap = document.createElement('div');
+    wrap.className = 'summary-subtypes';
+
+    const subEntries = [...this.docSubtypes.entries()].sort(
+      (a, b) => b[1].count - a[1].count
+    );
+    for (const [subtype, { count }] of subEntries) {
+      const row = document.createElement('div');
+      row.className = 'summary-subtype-row';
+      row.textContent = `${DocumentSubtypeLabel[subtype] || subtype}: ${formatCount(
+        count
+      )} (${formatPercent(count, docTotal)})`;
+      wrap.appendChild(row);
+    }
+    return wrap;
   }
 }

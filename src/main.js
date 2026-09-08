@@ -11,6 +11,7 @@ import { Progress } from './ui/progress.js';
 import { Summary } from './ui/summary.js';
 import { ResultsTable, MAX_LISTED_FILES } from './ui/resultsTable.js';
 import { Logger } from './ui/logger.js';
+import { Largest } from './ui/largest.js';
 import {
   buildReport,
   downloadReport,
@@ -18,6 +19,8 @@ import {
   readExistingReport,
   buildCacheIndex,
   cacheKey,
+  computeLargestFiles,
+  computeLargestFolders,
 } from './report/report.js';
 
 /** How many files to classify in parallel. Keeps the tab responsive. */
@@ -40,6 +43,7 @@ const progress = new Progress();
 const summary = new Summary();
 const table = new ResultsTable();
 const logger = new Logger();
+const largest = new Largest();
 
 /** Cooperative cancellation flag, flipped by the Stop button. */
 let cancelled = false;
@@ -164,6 +168,12 @@ function renderFromReport(report) {
     summary.addAggregate(type, count, size);
   }
 
+  // Document sub-type breakdown, if the report carries it.
+  const docSub = report.documentSubtypes || {};
+  for (const [subtype, { count, size }] of Object.entries(docSub)) {
+    summary.addDocSubtypeAggregate(subtype, count, size);
+  }
+
   const files = report.files || [];
   for (const rec of files.slice(0, MAX_LISTED_FILES + 1)) {
     table.add({
@@ -175,6 +185,13 @@ function renderFromReport(report) {
       detectedBy: rec.detectedBy,
     });
   }
+  // Largest files/folders come straight from the report if present, otherwise
+  // compute them from the file records.
+  largest.render(
+    report.largestFiles || computeLargestFiles(files),
+    report.largestFolders || computeLargestFolders(files)
+  );
+
   progress.finish(report.totals?.files ?? files.length);
   logger.success(
     `Loaded ${report.totals?.files ?? files.length} files from the saved report.`
@@ -205,6 +222,7 @@ async function runScan(source, priorReport = null) {
   summary.reset();
   table.show();
   table.reset();
+  largest.reset();
 
   const cache = buildCacheIndex(priorReport);
   if (cache.size > 0) {
@@ -295,6 +313,7 @@ async function runScan(source, priorReport = null) {
           type: cached.type,
           mime: cached.mime,
           detectedBy: cached.detectedBy,
+          subtype: cached.subtype,
         };
         reused += 1;
       } else if (sampledForFolder) {
@@ -310,7 +329,7 @@ async function runScan(source, priorReport = null) {
 
       count += 1;
       progress.update(count, entry.path);
-      summary.add(result.type, size);
+      summary.add(result.type, size, result.subtype);
 
       fileRecords.push({
         path: entry.path,
@@ -318,6 +337,7 @@ async function runScan(source, priorReport = null) {
         size,
         lastModified,
         type: result.type,
+        subtype: result.subtype || '',
         mime: result.mime || '',
         detectedBy: result.detectedBy,
         folder: entry.folder ? entry.folder.id : null,
@@ -383,10 +403,14 @@ async function runScan(source, priorReport = null) {
     currentReport = buildReport({
       rootName,
       summaryTotals: summary.totals,
+      documentSubtypeTotals: summary.docSubtypes,
       folderStats: recognizedFolders,
       fileRecords,
     });
     els.exportControls.hidden = false;
+
+    // Show the largest files/folders computed in the report.
+    largest.render(currentReport.largestFiles, currentReport.largestFolders);
 
     await saveReportToFolder(currentReport);
   }

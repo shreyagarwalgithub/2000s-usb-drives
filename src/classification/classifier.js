@@ -1,6 +1,20 @@
-import { ContentType, Confidence } from './types.js';
+import { ContentType, Confidence, documentSubtypeForMime } from './types.js';
 import { classifyByExtension, getExtension } from './engines/extensionEngine.js';
 import { classifyByMagic, readHeader } from './engines/magicNumberEngine.js';
+
+/**
+ * Attach a document sub-type to a result when it is a document. No-op for other
+ * content types. Returns the (possibly enriched) result.
+ * @param {import('./types.js').ClassificationResult} result
+ * @returns {import('./types.js').ClassificationResult}
+ */
+function withSubtype(result) {
+  if (result.type === ContentType.DOCUMENT) {
+    const subtype = documentSubtypeForMime(result.mime);
+    if (subtype) return { ...result, subtype };
+  }
+  return result;
+}
 
 /**
  * Extensions that are ZIP-based containers. Their magic number is a plain ZIP
@@ -31,6 +45,19 @@ const ZIP_BASED_EXTENSIONS = new Set([
  * @returns {Promise<import('./types.js').ClassificationResult>}
  */
 export async function classifyFile({ name, file, readBytes = true }) {
+  return withSubtype(await classifyFileRaw({ name, file, readBytes }));
+}
+
+/**
+ * The core reconciliation, without sub-type enrichment. Kept separate so the
+ * document sub-type is applied uniformly to every return path.
+ * @param {Object} params
+ * @param {string} params.name
+ * @param {File|Blob} [params.file]
+ * @param {boolean} [params.readBytes]
+ * @returns {Promise<import('./types.js').ClassificationResult>}
+ */
+async function classifyFileRaw({ name, file, readBytes = true }) {
   const byExt = classifyByExtension(name);
 
   if (!readBytes || !file || file.size === 0) {
@@ -57,7 +84,8 @@ export async function classifyFile({ name, file, readBytes = true }) {
   }
 
   // Legacy OLE (doc/xls/ppt) all share one magic number. Keep the extension's
-  // MIME when the extension already identified it as a document.
+  // MIME when the extension already identified it as a document, so we can tell
+  // Word/Excel/PowerPoint apart for the document sub-type.
   if (byMagic.mime === 'application/x-ole-storage' && byExt.type === ContentType.DOCUMENT) {
     return { ...byMagic, mime: byExt.mime };
   }
@@ -73,7 +101,7 @@ export async function classifyFile({ name, file, readBytes = true }) {
  * @returns {import('./types.js').ClassificationResult}
  */
 export function classifyNameOnly(name) {
-  return classifyByExtension(name);
+  return withSubtype(classifyByExtension(name));
 }
 
 export { ContentType, Confidence };
