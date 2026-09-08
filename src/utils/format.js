@@ -24,3 +24,18 @@ export function formatBytes(bytes) {
 export function formatCount(n) {
   return new Intl.NumberFormat().format(n);
 }
+
+/**
+ * Format a part/whole ratio as a percentage string (e.g. "12.3%").
+ * Returns "0%" when the whole is zero to avoid division by zero.
+ * @param {number} part
+ * @param {number} whole
+ * @returns {string}
+ */
+export function formatPercent(part, whole) {
+  if (!Number.isFinite(whole) || whole <= 0) return '0%';
+  const pct = (part / whole) * 100;
+  // Show one decimal for small shares, whole numbers once it's sizable.
+  const rounded = pct >= 10 ? Math.round(pct) : Math.round(pct * 10) / 10;
+  return `${rounded}%`;
+}
