@@ -102,6 +102,105 @@ button.secondary {
   white-space: nowrap;
 }
 
+/* ---- Progress bar ---- */
+.progress-bar {
+  margin-top: 0.75rem;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+/* Indeterminate mode: an animated sweep when no total is known yet. */
+.progress-bar.indeterminate .progress-bar-fill {
+  width: 35%;
+  transition: none;
+  animation: progress-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes progress-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+/* ---- Logs ---- */
+.log-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.log-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.log-output {
+  margin-top: 0.75rem;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.log-line {
+  display: flex;
+  gap: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-time {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.log-message {
+  flex: 1 1 auto;
+}
+
+.log-info .log-message {
+  color: var(--text);
+}
+
+.log-success .log-message {
+  color: #5ad48a;
+}
+
+.log-warn .log-message {
+  color: #e6c14b;
+}
+
+.log-error .log-message {
+  color: #ef6b6b;
+}
+
 /* ---- Summary ---- */
 .summary-section h2,
 .results-toolbar h2 {

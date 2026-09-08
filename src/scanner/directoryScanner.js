@@ -87,3 +87,24 @@ export function scan(source) {
   }
   throw new Error('scan() requires a dirHandle or inputItems source');
 }
+
+/**
+ * Count the files a scan would yield, without reading any file contents.
+ *
+ * This walks the same generator as scan(), so the total matches what the
+ * classification pass will actually process. It is a name-only traversal, so
+ * it is cheap even on very large drives. For the webkitdirectory fallback the
+ * list is already in memory, so counting is effectively instant.
+ *
+ * @param {Object} source Either { dirHandle } or { inputItems }.
+ * @param {() => boolean} [shouldStop] Return true to abort counting early.
+ * @returns {Promise<number>}
+ */
+export async function countFiles(source, shouldStop) {
+  let total = 0;
+  for await (const _entry of scan(source)) {
+    if (shouldStop && shouldStop()) break;
+    total += 1;
+  }
+  return total;
+}

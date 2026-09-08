@@ -33,7 +33,25 @@
           <span id="progress-count">0 files scanned</span>
           <button id="cancel-scan" type="button" class="secondary">Stop</button>
         </div>
+        <div
+          id="progress-bar"
+          class="progress-bar"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
         <p id="progress-current" class="progress-current"></p>
+      </section>
+
+      <section id="log-section" class="log-section" hidden>
+        <div class="log-header">
+          <h2>Logs</h2>
+          <button id="clear-logs" type="button" class="secondary">Clear</button>
+        </div>
+        <div id="log-output" class="log-output" aria-live="polite"></div>
       </section>
 
       <section id="summary-section" class="summary-section" hidden>
