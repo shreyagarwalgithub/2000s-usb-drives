@@ -327,6 +327,112 @@ button.secondary {
   color: var(--text);
 }
 
+/* ---- Disk usage map (ncdu-style tree browser) ---- */
+.tree-section h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.tree-help {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tree-breadcrumb {
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.tree-crumb {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tree-crumb:hover:not(.current) {
+  text-decoration: underline;
+  background: none;
+}
+
+.tree-crumb.current {
+  color: var(--text);
+  cursor: default;
+}
+
+.tree-crumb-sep {
+  color: var(--muted);
+}
+
+.tree-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tree-row {
+  display: grid;
+  grid-template-columns: 84px 1fr minmax(180px, 2fr) 90px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.tree-row:last-child {
+  border-bottom: none;
+}
+
+.tree-row.clickable {
+  cursor: pointer;
+}
+
+.tree-row.clickable:hover {
+  background: var(--surface);
+}
+
+.tree-size {
+  text-align: right;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.tree-bar {
+  display: block;
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tree-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.tree-row.is-file .tree-bar-fill {
+  background: var(--muted);
+}
+
+.tree-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-count {
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 /* ---- Results table ---- */
 .results-toolbar {
   display: flex;

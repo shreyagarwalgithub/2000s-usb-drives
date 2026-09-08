@@ -58,6 +58,16 @@ folders (by summed file size, grouped at immediate-parent granularity). These
 are shown on the page and included in the report, so the biggest space consumers
 are easy to spot.
 
+### Disk usage map (ncdu-style)
+
+Inspired by the Linux tool [ncdu](https://man.archlinux.org/man/ncdu.1), the app
+builds an interactive, navigable disk-usage map. Every directory shows its
+*total recursive* size (everything inside it, at every depth), children are
+sorted biggest-first with a proportional size bar, and you drill into folders by
+clicking (with a breadcrumb to jump back up). It is built from the same per-file
+records as the report, so it adds no scanning cost and works both live and when
+loading a saved report. (ncdu behavior summarized from public documentation.)
+
 ## File access
 
 - **Preferred:** the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker)
@@ -150,7 +160,8 @@ src/
 │   ├── directoryScanner.js      Recursive, streaming directory walk
 │   └── folderIntelligence.js    Dictionary of well-known folders + 5% sampling
 ├── report/
-│   └── report.js                Build/save/export/reuse the scan report (cache)
+│   ├── report.js                Build/save/export/reuse the scan report (cache)
+│   └── sizeTree.js              Recursive size tree for the disk-usage map
 ├── classification/
 │   ├── classifier.js            Orchestrates the engines
 │   ├── types.js                 ContentType categories + labels

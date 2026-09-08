@@ -12,6 +12,7 @@ import { Summary } from './ui/summary.js';
 import { ResultsTable, MAX_LISTED_FILES } from './ui/resultsTable.js';
 import { Logger } from './ui/logger.js';
 import { Largest } from './ui/largest.js';
+import { TreeBrowser } from './ui/treeBrowser.js';
 import {
   buildReport,
   downloadReport,
@@ -44,6 +45,7 @@ const summary = new Summary();
 const table = new ResultsTable();
 const logger = new Logger();
 const largest = new Largest();
+const treeBrowser = new TreeBrowser();
 
 /** Cooperative cancellation flag, flipped by the Stop button. */
 let cancelled = false;
@@ -192,6 +194,9 @@ function renderFromReport(report) {
     report.largestFolders || computeLargestFolders(files)
   );
 
+  // Disk-usage map (ncdu-style) is built from the file records.
+  treeBrowser.render(files);
+
   progress.finish(report.totals?.files ?? files.length);
   logger.success(
     `Loaded ${report.totals?.files ?? files.length} files from the saved report.`
@@ -223,6 +228,7 @@ async function runScan(source, priorReport = null) {
   table.show();
   table.reset();
   largest.reset();
+  treeBrowser.reset();
 
   const cache = buildCacheIndex(priorReport);
   if (cache.size > 0) {
@@ -411,6 +417,9 @@ async function runScan(source, priorReport = null) {
 
     // Show the largest files/folders computed in the report.
     largest.render(currentReport.largestFiles, currentReport.largestFolders);
+
+    // Build the ncdu-style disk-usage map from the per-file records.
+    treeBrowser.render(fileRecords);
 
     await saveReportToFolder(currentReport);
   }
