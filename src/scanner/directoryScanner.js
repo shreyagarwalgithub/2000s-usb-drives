@@ -27,6 +27,7 @@
  */
 
 import { recognizeFolder, shouldSample } from './folderIntelligence.js';
+import { REPORT_FILENAME } from '../report/report.js';
 
 /** Directory names we skip entirely: system/metadata clutter on old drives. */
 const SKIP_DIRS = new Set([
@@ -37,6 +38,9 @@ const SKIP_DIRS = new Set([
   '.fseventsd',
   '.git',
 ]);
+
+/** File names we never classify (the app's own artifacts). */
+const SKIP_FILES = new Set([REPORT_FILENAME]);
 
 /**
  * Recursively yield file entries from a directory handle.
@@ -77,6 +81,9 @@ export async function* walkDirectoryHandle(
 
       yield* walkDirectoryHandle(handle, path, folder, counter);
     } else {
+      // Never classify the app's own report file.
+      if (SKIP_FILES.has(name)) continue;
+
       // Decide sampling for files inside a recognized folder.
       let sampled = true;
       if (inheritedFolder && sampleCounter) {
@@ -114,6 +121,7 @@ export async function* walkInputFiles(items) {
   for (const { file, path } of items) {
     const segments = path.split('/');
     if (segments.some((seg) => SKIP_DIRS.has(seg))) continue;
+    if (SKIP_FILES.has(segments[segments.length - 1])) continue;
 
     const parentPath = segments.slice(0, -1).join('/');
     const folder = recognizeFolder(parentPath);

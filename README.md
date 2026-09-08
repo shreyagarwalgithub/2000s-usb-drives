@@ -78,6 +78,31 @@ Edge, Firefox, Safari), generic caches, temp folders, Windows/macOS app data and
 system stores, and build/dependency artifacts. Add new ones by extending
 `FOLDER_PATTERNS`.
 
+## Scan reports (save, export, and reuse)
+
+Every scan produces a detailed report (`src/report/report.js`) containing:
+
+- Metadata: generation timestamp and the scanned folder name.
+- Totals and the per-category summary (counts and sizes).
+- Folder-intelligence results (which folders were recognized, sampled/skipped).
+- A per-file record: path, name, size, last-modified, classified type, MIME,
+  how it was detected, and its folder/sampling status.
+
+The report is used two ways:
+
+1. **Saved and exportable.** On the File System Access API path, the report is
+   written into the scanned folder as `.usb-classifier-report.json`. On any
+   browser, the **Export report** button downloads a dated copy
+   (`usb-classifier-<folder>-<YYYY-MM-DD>.json`). Saving into the folder is why
+   the app requests read-write access; it only ever writes that one file and
+   never modifies or deletes your existing content.
+
+2. **Reused to avoid needless work.** When you pick a folder that already
+   contains a report, the app reads it first and asks whether to **reuse** it or
+   **scan again**. If you scan again, files that are unchanged (same path, size,
+   and last-modified) reuse their prior classification and skip the byte read,
+   so re-scans are much faster and classification stays stable.
+
 ## Getting started
 
 Requires Node.js 18+ and a Chromium-based browser for the best experience.
@@ -102,6 +127,8 @@ src/
 │   ├── filePicker.js            File System Access API + webkitdirectory fallback
 │   ├── directoryScanner.js      Recursive, streaming directory walk
 │   └── folderIntelligence.js    Dictionary of well-known folders + 5% sampling
+├── report/
+│   └── report.js                Build/save/export/reuse the scan report (cache)
 ├── classification/
 │   ├── classifier.js            Orchestrates the engines
 │   ├── types.js                 ContentType categories + labels
@@ -152,7 +179,10 @@ scanner or classifier.
 ## Privacy
 
 All scanning and classification happen entirely in your browser. Files and their
-contents never leave your machine in iteration 1.
+contents never leave your machine. The app requests read-write access only so it
+can save its own report file (`.usb-classifier-report.json`) into the scanned
+folder; it never modifies or deletes your existing files, and it makes no
+network requests with your data.
 
 ## License
 

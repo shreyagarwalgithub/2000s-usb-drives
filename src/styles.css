@@ -77,6 +77,36 @@ button.secondary {
   max-width: 70ch;
 }
 
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.controls .support-note {
+  flex-basis: 100%;
+}
+
+/* ---- Prior report prompt ---- */
+.prior-report {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.prior-report p {
+  margin: 0 0 0.75rem;
+  max-width: 70ch;
+}
+
+.prior-report-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* ---- Progress ---- */
 .progress-section {
   background: var(--surface);

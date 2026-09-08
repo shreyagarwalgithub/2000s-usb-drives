@@ -18,6 +18,12 @@ export class Summary {
     this.section.hidden = false;
   }
 
+  /** Clear all totals so the summary can be reused for a fresh scan. */
+  reset() {
+    this.totals = new Map();
+    this.cards.innerHTML = '';
+  }
+
   /**
    * Record one classified file.
    * @param {string} type One of ContentType.
@@ -27,6 +33,21 @@ export class Summary {
     const t = this.totals.get(type) || { count: 0, size: 0 };
     t.count += 1;
     t.size += Number.isFinite(size) && size > 0 ? size : 0;
+    this.totals.set(type, t);
+    this._scheduleRender();
+  }
+
+  /**
+   * Add an aggregate for a category in one shot. Used when rendering from a
+   * saved report, where per-category totals are already known.
+   * @param {string} type One of ContentType.
+   * @param {number} count Number of files.
+   * @param {number} size  Total bytes.
+   */
+  addAggregate(type, count, size) {
+    const t = this.totals.get(type) || { count: 0, size: 0 };
+    t.count += Number.isFinite(count) ? count : 0;
+    t.size += Number.isFinite(size) ? size : 0;
     this.totals.set(type, t);
     this._scheduleRender();
   }

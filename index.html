@@ -18,6 +18,9 @@
     <main class="app-main">
       <section class="controls">
         <button id="pick-directory" type="button">Choose a folder / drive</button>
+        <button id="export-report" type="button" class="secondary" hidden>
+          Export report
+        </button>
         <input
           id="fallback-input"
           type="file"
@@ -26,6 +29,16 @@
           hidden
         />
         <p id="support-note" class="support-note"></p>
+      </section>
+
+      <section id="prior-report-section" class="prior-report" hidden>
+        <p id="prior-report-message"></p>
+        <div class="prior-report-actions">
+          <button id="reuse-report" type="button" class="secondary">
+            Use saved report
+          </button>
+          <button id="rescan" type="button">Scan again</button>
+        </div>
       </section>
 
       <section id="progress-section" class="progress-section" hidden>
