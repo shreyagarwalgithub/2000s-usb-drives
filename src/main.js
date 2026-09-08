@@ -8,7 +8,7 @@ import { classifyFile } from './classification/classifier.js';
 import { runPool } from './utils/concurrency.js';
 import { Progress } from './ui/progress.js';
 import { Summary } from './ui/summary.js';
-import { ResultsTable } from './ui/resultsTable.js';
+import { ResultsTable, MAX_LISTED_FILES } from './ui/resultsTable.js';
 import { Logger } from './ui/logger.js';
 
 /** How many files to classify in parallel. Keeps the tab responsive. */
@@ -84,6 +84,7 @@ async function runScan(source) {
   progress.show();
   summary.show();
   table.show();
+  table.reset();
 
   // ---- Pass 1: count files so the bar has a total ----
   progress.setTotal(0); // indeterminate while counting
@@ -131,6 +132,8 @@ async function runScan(source) {
       count += 1;
       progress.update(count, entry.path);
       summary.add(result.type, size);
+
+      const wasRemoved = table.listRemoved;
       table.add({
         name: entry.name,
         path: entry.path,
@@ -139,6 +142,13 @@ async function runScan(source) {
         mime: result.mime || '',
         detectedBy: result.detectedBy,
       });
+      // Log once, exactly when the list gets removed for being too large.
+      if (!wasRemoved && table.listRemoved) {
+        logger.warn(
+          `File list exceeded ${MAX_LISTED_FILES} files and was removed. ` +
+            `Use the Summary and Logs instead.`
+        );
+      }
 
       // Periodic milestone log so the panel shows steady progress.
       if (count % 500 === 0) {
