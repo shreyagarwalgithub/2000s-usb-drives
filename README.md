@@ -92,10 +92,17 @@ The report is used two ways:
 
 1. **Saved and exportable.** On the File System Access API path, the report is
    written into the scanned folder as `.usb-classifier-report.json`. On any
-   browser, the **Export report** button downloads a dated copy
-   (`usb-classifier-<folder>-<YYYY-MM-DD>.json`). Saving into the folder is why
-   the app requests read-write access; it only ever writes that one file and
-   never modifies or deletes your existing content.
+   browser, the **Export report** control downloads a dated copy in your chosen
+   format (`usb-classifier-<folder>-<YYYY-MM-DD>.<ext>`):
+   - **HTML** — a self-contained, styled page (summary, folder intelligence, and
+     file list) that opens in any browser. Best for reading.
+   - **CSV** — the per-file records, for opening in a spreadsheet.
+   - **JSON** — the full machine-readable report; this is also the format used
+     as the re-scan cache.
+
+   Saving into the folder is why the app requests read-write access; it only
+   ever writes that one JSON file and never modifies or deletes your existing
+   content.
 
 2. **Reused to avoid needless work.** When you pick a folder that already
    contains a report, the app reads it first and asks whether to **reuse** it or

@@ -97,24 +97,237 @@ export function serializeReport(report) {
 }
 
 /**
- * Trigger a browser download of the report with a dated, human-friendly name.
+ * Trigger a browser download of the report in the given format.
  * Works in every browser (no special permission needed).
+ *
  * @param {ScanReport} report
+ * @param {'json'|'csv'|'html'} [format='json']
  */
-export function downloadReport(report) {
-  const json = serializeReport(report);
-  const blob = new Blob([json], { type: 'application/json' });
+export function downloadReport(report, format = 'json') {
+  const { content, mime, ext } = renderReport(report, format);
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const date = report.generatedAt.slice(0, 10); // YYYY-MM-DD
   const safeRoot = (report.rootName || 'scan').replace(/[^\w.-]+/g, '_');
 
   const a = document.createElement('a');
   a.href = url;
-  a.download = `usb-classifier-${safeRoot}-${date}.json`;
+  a.download = `usb-classifier-${safeRoot}-${date}.${ext}`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Render a report to the requested format.
+ * @param {ScanReport} report
+ * @param {'json'|'csv'|'html'} format
+ * @returns {{ content: string, mime: string, ext: string }}
+ */
+export function renderReport(report, format) {
+  switch (format) {
+    case 'csv':
+      return {
+        content: serializeReportCsv(report),
+        mime: 'text/csv',
+        ext: 'csv',
+      };
+    case 'html':
+      return {
+        content: serializeReportHtml(report),
+        mime: 'text/html',
+        ext: 'html',
+      };
+    case 'json':
+    default:
+      return {
+        content: serializeReport(report),
+        mime: 'application/json',
+        ext: 'json',
+      };
+  }
+}
+
+/**
+ * Serialize the per-file records as CSV, plus the file is spreadsheet-friendly.
+ * Columns: path, name, sizeBytes, lastModified (ISO), type, mime, detectedBy,
+ * folder, sampled.
+ * @param {ScanReport} report
+ * @returns {string}
+ */
+export function serializeReportCsv(report) {
+  const header = [
+    'path',
+    'name',
+    'sizeBytes',
+    'lastModified',
+    'type',
+    'mime',
+    'detectedBy',
+    'folder',
+    'sampled',
+  ];
+  const rows = [header.map(csvCell).join(',')];
+  for (const rec of report.files || []) {
+    const lm = rec.lastModified ? new Date(rec.lastModified).toISOString() : '';
+    rows.push(
+      [
+        rec.path,
+        rec.name,
+        rec.size,
+        lm,
+        rec.type,
+        rec.mime || '',
+        rec.detectedBy,
+        rec.folder || '',
+        rec.sampled ? 'yes' : 'no',
+      ]
+        .map(csvCell)
+        .join(',')
+    );
+  }
+  return rows.join('\r\n');
+}
+
+/**
+ * Escape a value for CSV: wrap in quotes and double any inner quotes when the
+ * value contains a comma, quote, or newline.
+ * @param {*} value
+ * @returns {string}
+ */
+function csvCell(value) {
+  const s = value == null ? '' : String(value);
+  if (/[",\r\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/**
+ * Serialize the report as a self-contained, styled HTML page: metadata,
+ * per-category summary, folder intelligence, and (a capped) file list.
+ * @param {ScanReport} report
+ * @returns {string}
+ */
+export function serializeReportHtml(report) {
+  const esc = escapeHtml;
+  const generated = new Date(report.generatedAt).toLocaleString();
+  const totalFiles = report.totals?.files ?? 0;
+  const totalBytes = report.totals?.bytes ?? 0;
+
+  // Summary rows, sorted by descending count.
+  const summaryEntries = Object.entries(report.summary || {}).sort(
+    (a, b) => b[1].count - a[1].count
+  );
+  const summaryRows = summaryEntries
+    .map(([type, { count, size }]) => {
+      const cPct = totalFiles ? Math.round((count / totalFiles) * 100) : 0;
+      const sPct = totalBytes ? Math.round((size / totalBytes) * 100) : 0;
+      return `<tr><td>${esc(type)}</td><td>${count} (${cPct}%)</td><td>${formatBytesHtml(
+        size
+      )} (${sPct}%)</td></tr>`;
+    })
+    .join('');
+
+  // Folder intelligence rows.
+  const folderEntries = Object.entries(report.folders || {});
+  const folderRows = folderEntries
+    .map(
+      ([id, f]) =>
+        `<tr><td>${esc(f.label || id)}</td><td>${esc(
+          f.importance || ''
+        )}</td><td>${f.total}</td><td>${f.sampled}</td><td>${f.skipped}</td></tr>`
+    )
+    .join('');
+  const folderSection = folderEntries.length
+    ? `<h2>Recognized folders</h2>
+       <table>
+         <thead><tr><th>Folder</th><th>Importance</th><th>Files</th><th>Sampled</th><th>Skipped</th></tr></thead>
+         <tbody>${folderRows}</tbody>
+       </table>`
+    : '';
+
+  // File list, capped to keep the HTML from getting huge.
+  const FILE_CAP = 1000;
+  const files = report.files || [];
+  const shownFiles = files.slice(0, FILE_CAP);
+  const fileRows = shownFiles
+    .map(
+      (r) =>
+        `<tr><td>${esc(r.name)}</td><td>${esc(r.type)}</td><td>${esc(
+          r.mime || ''
+        )}</td><td>${formatBytesHtml(r.size)}</td><td class="path">${esc(
+          r.path
+        )}</td></tr>`
+    )
+    .join('');
+  const fileNote =
+    files.length > FILE_CAP
+      ? `<p class="note">Showing the first ${FILE_CAP} of ${files.length} files. The full list is in the JSON/CSV export.</p>`
+      : '';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>USB Classifier report — ${esc(report.rootName || '')}</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; color: #1a2130; }
+  h1 { margin-bottom: 0.25rem; }
+  .meta { color: #667; margin-bottom: 1.5rem; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 2rem; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #e2e6ee; }
+  th { background: #f4f6fa; }
+  td.path { color: #667; font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; }
+  .note { color: #667; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+  <h1>USB Drive Classifier report</h1>
+  <p class="meta">
+    Folder: <strong>${esc(report.rootName || '(unknown)')}</strong> ·
+    Generated: ${esc(generated)} ·
+    ${totalFiles} files · ${formatBytesHtml(totalBytes)}
+  </p>
+
+  <h2>Summary by type</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Files (share)</th><th>Size (share)</th></tr></thead>
+    <tbody>${summaryRows}</tbody>
+  </table>
+
+  ${folderSection}
+
+  <h2>Files</h2>
+  ${fileNote}
+  <table>
+    <thead><tr><th>Name</th><th>Type</th><th>MIME</th><th>Size</th><th>Path</th></tr></thead>
+    <tbody>${fileRows}</tbody>
+  </table>
+</body>
+</html>`;
+}
+
+/** Escape a string for safe insertion into HTML text/attributes. */
+function escapeHtml(value) {
+  const s = value == null ? '' : String(value);
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Compact human-readable byte size for the HTML report (no external deps). */
+function formatBytesHtml(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return '-';
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const e = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const v = bytes / Math.pow(1024, e);
+  const r = v >= 100 || e === 0 ? Math.round(v) : v.toFixed(1);
+  return `${r} ${units[e]}`;
 }
 
 /**

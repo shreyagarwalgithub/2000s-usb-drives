@@ -88,6 +88,17 @@ button.secondary {
   flex-basis: 100%;
 }
 
+.export-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.export-controls label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 /* ---- Prior report prompt ---- */
 .prior-report {
   background: var(--surface);

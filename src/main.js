@@ -26,6 +26,8 @@ const CONCURRENCY = 8;
 const els = {
   pickBtn: document.getElementById('pick-directory'),
   exportBtn: document.getElementById('export-report'),
+  exportControls: document.getElementById('export-controls'),
+  exportFormat: document.getElementById('export-format'),
   fallbackInput: document.getElementById('fallback-input'),
   supportNote: document.getElementById('support-note'),
   priorSection: document.getElementById('prior-report-section'),
@@ -54,8 +56,9 @@ progress.onCancel(() => {
 
 els.exportBtn.addEventListener('click', () => {
   if (currentReport) {
-    downloadReport(currentReport);
-    logger.success('Report downloaded.');
+    const format = els.exportFormat.value || 'html';
+    downloadReport(currentReport, format);
+    logger.success(`Report downloaded (${format.toUpperCase()}).`);
   }
 });
 
@@ -134,7 +137,7 @@ function promptReuseOrRescan(prior, source) {
     logger.success('Reusing the saved report.');
     renderFromReport(prior);
     currentReport = prior;
-    els.exportBtn.hidden = false;
+    els.exportControls.hidden = false;
   };
 
   els.rescanBtn.onclick = () => {
@@ -194,7 +197,7 @@ function renderFromReport(report) {
 async function runScan(source, priorReport = null) {
   cancelled = false;
   els.pickBtn.disabled = true;
-  els.exportBtn.hidden = true;
+  els.exportControls.hidden = true;
   currentReport = null;
 
   progress.show();
@@ -383,7 +386,7 @@ async function runScan(source, priorReport = null) {
       folderStats: recognizedFolders,
       fileRecords,
     });
-    els.exportBtn.hidden = false;
+    els.exportControls.hidden = false;
 
     await saveReportToFolder(currentReport);
   }

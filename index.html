@@ -18,9 +18,19 @@
     <main class="app-main">
       <section class="controls">
         <button id="pick-directory" type="button">Choose a folder / drive</button>
-        <button id="export-report" type="button" class="secondary" hidden>
-          Export report
-        </button>
+        <span id="export-controls" class="export-controls" hidden>
+          <label>
+            Format:
+            <select id="export-format">
+              <option value="html">HTML</option>
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+            </select>
+          </label>
+          <button id="export-report" type="button" class="secondary">
+            Export report
+          </button>
+        </span>
         <input
           id="fallback-input"
           type="file"
