@@ -108,6 +108,12 @@ async function runScan(source) {
   // ---- Pass 2: classify ----
   let count = 0;
   let errors = 0;
+  /**
+   * Per-recognized-folder stats, keyed by "id:path", for logging a concise
+   * summary of what was recognized and how much was skipped.
+   * @type {Map<string, { label: string, note: string, total: number, sampled: number }>}
+   */
+  const recognizedFolders = new Map();
   const entries = scan(source);
 
   await runPool(
@@ -115,19 +121,55 @@ async function runScan(source) {
     async (entry) => {
       if (cancelled) return;
 
-      let file;
-      let size = entry.size;
-      try {
-        file = await entry.getFile();
-        if (size < 0) size = file.size;
-      } catch (err) {
-        // File may be unreadable (drive removed, permissions). Classify by name.
-        file = undefined;
-        errors += 1;
-        logger.warn(`Could not read "${entry.path}"; classified by name only.`);
+      // Folder intelligence: for files in a recognized folder that were NOT
+      // picked for the ~5% sample, skip byte reading and label them by folder.
+      const inRecognizedFolder = Boolean(entry.folder);
+      const shouldRead = !inRecognizedFolder || entry.sampled;
+
+      if (inRecognizedFolder) {
+        const key = entry.folder.id;
+        let stat = recognizedFolders.get(key);
+        if (!stat) {
+          stat = {
+            label: entry.folder.label,
+            note: entry.folder.note || '',
+            total: 0,
+            sampled: 0,
+          };
+          recognizedFolders.set(key, stat);
+          logger.info(
+            `Recognized folder "${entry.folder.label}" — sampling ~5%, ` +
+              `labeling the rest. (${entry.folder.importance})`
+          );
+        }
+        stat.total += 1;
+        if (entry.sampled) stat.sampled += 1;
       }
 
-      const result = await classifyFile({ name: entry.name, file });
+      let file;
+      let size = entry.size;
+      let result;
+
+      if (shouldRead) {
+        try {
+          file = await entry.getFile();
+          if (size < 0) size = file.size;
+        } catch (err) {
+          file = undefined;
+          errors += 1;
+          logger.warn(`Could not read "${entry.path}"; classified by name only.`);
+        }
+        result = await classifyFile({ name: entry.name, file });
+      } else {
+        // Not sampled: classify by name only (no byte read) and tag the folder.
+        result = await classifyFile({ name: entry.name, readBytes: false });
+        // Size is unknown without reading the File; fetch it cheaply if we can.
+        try {
+          if (size < 0) size = (await entry.getFile()).size;
+        } catch {
+          size = 0;
+        }
+      }
 
       count += 1;
       progress.update(count, entry.path);
@@ -166,6 +208,24 @@ async function runScan(source) {
       logger.warn(`${errors} file(s) could not be read and were classified by name only.`);
     }
   }
+
+  // Summarize recognized folders: how many files were sampled vs. skipped.
+  if (recognizedFolders.size > 0) {
+    let skippedTotal = 0;
+    for (const stat of recognizedFolders.values()) {
+      const skipped = stat.total - stat.sampled;
+      skippedTotal += skipped;
+      logger.info(
+        `${stat.label}: ${stat.total} files, classified ${stat.sampled} ` +
+          `(sample), labeled/skipped ${skipped}.`
+      );
+    }
+    logger.success(
+      `Folder intelligence skipped full classification of ${skippedTotal} ` +
+        `file(s) across ${recognizedFolders.size} recognized folder(s).`
+    );
+  }
+
   finishRun(count, cancelled);
 }
 

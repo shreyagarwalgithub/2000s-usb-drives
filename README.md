@@ -55,7 +55,28 @@ quality, etc.).
 Scanning is streamed through a bounded worker pool
 (`src/utils/concurrency.js`), so even very large drives stay responsive and
 memory usage stays flat. System/metadata folders (`$RECYCLE.BIN`,
-`System Volume Information`, `node_modules`, `.git`, ...) are skipped.
+`System Volume Information`, `.git`, ...) are skipped entirely.
+
+## Folder intelligence
+
+Old drives are full of well-known folders whose contents are predictable and
+mostly disposable: browser caches, temp directories, application support data,
+and dependency folders like `node_modules`. Fully classifying every file in a
+50,000-file Chrome cache is wasted effort.
+
+`src/scanner/folderIntelligence.js` keeps a dictionary of such folders, matched
+by path (with context, e.g. a `Cache` folder specifically under
+`Google/Chrome`). When the scanner enters a recognized folder it:
+
+1. Labels the whole folder (e.g. "Google Chrome cache", marked *disposable*).
+2. Fully classifies only a random ~5% sample of its files.
+3. Attributes the rest to the folder's label without reading their bytes.
+
+The Logs panel reports each recognized folder and how many files were sampled
+vs. skipped. Recognized categories include browser caches (Chrome, Chromium,
+Edge, Firefox, Safari), generic caches, temp folders, Windows/macOS app data and
+system stores, and build/dependency artifacts. Add new ones by extending
+`FOLDER_PATTERNS`.
 
 ## Getting started
 
@@ -79,7 +100,8 @@ src/
 ├── styles.css
 ├── scanner/
 │   ├── filePicker.js            File System Access API + webkitdirectory fallback
-│   └── directoryScanner.js      Recursive, streaming directory walk
+│   ├── directoryScanner.js      Recursive, streaming directory walk
+│   └── folderIntelligence.js    Dictionary of well-known folders + 5% sampling
 ├── classification/
 │   ├── classifier.js            Orchestrates the engines
 │   ├── types.js                 ContentType categories + labels
